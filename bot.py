@@ -75,13 +75,25 @@ def get_binance_rate():
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        ads = data.get("data", [])
-        if not ads:
-            return None
-        price = float(ads[0]["adv"]["price"])
-        nick = ads[0]["advertiser"]["nickName"]
-        min_amount = ads[0]["adv"]["minSingleTransAmount"]
-        max_amount = ads[0]["adv"]["maxSingleTransAmount"]
+ads = data.get("data", [])
+if not ads:
+    return None
+
+# Пропускаем спонсированные объявления
+real_ad = None
+for ad in ads:
+    if not ad["adv"].get("isAdvert", False):
+        real_ad = ad
+        break
+
+if not real_ad:
+    real_ad = ads[0]
+
+price = float(real_ad["adv"]["price"])
+nick = real_ad["advertiser"]["nickName"]
+min_amount = real_ad["adv"]["minSingleTransAmount"]
+max_amount = real_ad["adv"]["maxSingleTransAmount"]
+
         return {
             "price": price,
             "nick": nick,
