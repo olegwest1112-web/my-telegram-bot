@@ -56,7 +56,7 @@ def get_binance_rate():
             "page": 1,
             "payTypes": [],
             "publisherType": None,
-            "rows": 5,
+            "rows": 10,
             "tradeType": "BUY",
             "transAmount": "5000"
         }).encode("utf-8")
@@ -75,25 +75,20 @@ def get_binance_rate():
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-ads = data.get("data", [])
-if not ads:
-    return None
-
-# Пропускаем спонсированные объявления
-real_ad = None
-for ad in ads:
-    if not ad["adv"].get("isAdvert", False):
-        real_ad = ad
-        break
-
-if not real_ad:
-    real_ad = ads[0]
-
-price = float(real_ad["adv"]["price"])
-nick = real_ad["advertiser"]["nickName"]
-min_amount = real_ad["adv"]["minSingleTransAmount"]
-max_amount = real_ad["adv"]["maxSingleTransAmount"]
-
+        ads = data.get("data", [])
+        if not ads:
+            return None
+        real_ad = None
+        for ad in ads:
+            if not ad["adv"].get("isAdvert", False):
+                real_ad = ad
+                break
+        if not real_ad:
+            real_ad = ads[0]
+        price = float(real_ad["adv"]["price"])
+        nick = real_ad["advertiser"]["nickName"]
+        min_amount = real_ad["adv"]["minSingleTransAmount"]
+        max_amount = real_ad["adv"]["maxSingleTransAmount"]
         return {
             "price": price,
             "nick": nick,
@@ -103,7 +98,6 @@ max_amount = real_ad["adv"]["maxSingleTransAmount"]
     except Exception as e:
         logging.error(f"Binance error: {e}")
         return None
-
 
 async def show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ Загружаю курс...")
@@ -157,21 +151,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "🌤 Погода":
         await update.message.reply_text("Введи название города:", reply_markup=cancel_menu())
         return WAITING_CITY
-
     elif text == "💡 Случайный факт":
         await update.message.reply_text(random.choice(FACTS), reply_markup=main_menu())
-
     elif text == "🧮 Калькулятор":
-        await update.message.reply_text(
-            "Введи пример (например: 25 * 4 или 100 / 5):",
-            reply_markup=cancel_menu()
-        )
+        await update.message.reply_text("Введи пример (например: 25 * 4):", reply_markup=cancel_menu())
         return WAITING_CALC
-
     elif text == "📝 Заметка":
         await update.message.reply_text("Напиши свою заметку:", reply_markup=cancel_menu())
         return WAITING_NOTE
-
     elif text == "📋 Мои заметки":
         uid = update.message.from_user.id
         notes = user_notes.get(uid, [])
@@ -180,15 +167,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"📋 Твои заметки:\n\n{result}", reply_markup=main_menu())
         else:
             await update.message.reply_text("У тебя пока нет заметок.", reply_markup=main_menu())
-
     elif text == "🗑 Удалить заметки":
         uid = update.message.from_user.id
         user_notes[uid] = []
         await update.message.reply_text("✅ Все заметки удалены.", reply_markup=main_menu())
-
     elif text == "💱 Курс USDT":
         await show_rate(update, context)
-
     elif text == "ℹ️ О боте":
         await update.message.reply_text(
             "🤖 Я простой бот-помощник!\n\n"
@@ -201,7 +185,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Создан с помощью Claude 🧠",
             reply_markup=main_menu()
         )
-
     return ConversationHandler.END
 
 async def get_weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
