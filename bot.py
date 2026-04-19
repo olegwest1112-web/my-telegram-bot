@@ -75,6 +75,31 @@ def calculate_delivery(weight: float, city: str) -> dict:
         "surcharge": surcharge,
         "total": total
     }
+    
+def calculate_delivery_time(city: str) -> str:
+    city_lower = city.lower()
+
+    # Львів → те саме місто
+    if "львів" in city_lower:
+        return "🟢 В межах міста — доставка сьогодні або завтра (1 день)"
+
+    # Близькі міста (Захід)
+    west = ["луцьк", "рівне", "тернопіль", "івано-франківськ", "ужгород", "мукачево", "хмельницький", "вінниця"]
+    if any(c in city_lower for c in west):
+        return "🟢 1-2 дні"
+
+    # Центр
+    center = ["київ", "житомир", "черкаси", "кропивницький", "полтава"]
+    if any(c in city_lower for c in center):
+        return "🟡 2-3 дні"
+
+    # Схід і Південь
+    east = ["харків", "дніпро", "запоріжжя", "одеса", "миколаїв", "херсон", "суми", "чернігів"]
+    if any(c in city_lower for c in east):
+        return "🟠 2-4 дні"
+
+    # Інше
+    return "🟡 2-3 дні (орієнтовно)"
 
 def main_menu():
     keyboard = [
@@ -194,6 +219,7 @@ async def get_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_history[uid] = []
     user_history[uid].append(result)
 
+        delivery_time = calculate_delivery_time(city)
     await update.message.reply_text(
         f"📦 Розрахунок доставки:\n\n"
         f"🏙 Місто: {result['city']}\n"
@@ -201,10 +227,12 @@ async def get_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📍 Тип: {result['city_type']}\n"
         f"💰 Базова вартість: {result['base']} грн\n"
         f"➕ Надбавка: {result['surcharge']} грн\n"
-        f"✅ Разом: {result['total']} грн\n\n"
-        f"⚠️ Орієнтовна вартість.",
+        f"✅ Разом: {result['total']} грн\n"
+        f"🕐 Термін доставки зі Львова: {delivery_time}\n\n"
+        f"⚠️ Орієнтовні дані.",
         reply_markup=main_menu()
     )
+
     return ConversationHandler.END
 
 async def track_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
