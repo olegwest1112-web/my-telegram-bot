@@ -54,7 +54,7 @@ def get_binance_rate():
             "fiat": "UAH",
             "merchantCheck": False,
             "page": 1,
-            "payTypes": ["ALL"],
+            "payTypes": [],
             "publisherType": None,
             "rows": 5,
             "tradeType": "BUY",
@@ -65,7 +65,11 @@ def get_binance_rate():
             data=payload,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "*/*",
+                "Accept-Language": "uk-UA,uk;q=0.9",
+                "Origin": "https://p2p.binance.com",
+                "Referer": "https://p2p.binance.com/",
             },
             method="POST"
         )
@@ -87,6 +91,7 @@ def get_binance_rate():
     except Exception as e:
         logging.error(f"Binance error: {e}")
         return None
+
 
 async def show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ Загружаю курс...")
