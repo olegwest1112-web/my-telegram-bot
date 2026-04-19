@@ -2,11 +2,12 @@ import logging
 import random
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    filters, ContextTypes, ConversationHandler
+    filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 )
 
 TOKEN = "8702890215:AAEjWQXaM5yID_-IgN9yupXuCwRp-gtYJK8"
@@ -37,13 +38,94 @@ def main_menu():
         [KeyboardButton("🌤 Погода"), KeyboardButton("💡 Случайный факт")],
         [KeyboardButton("🧮 Калькулятор"), KeyboardButton("📝 Заметка")],
         [KeyboardButton("📋 Мои заметки"), KeyboardButton("🗑 Удалить заметки")],
-        [KeyboardButton("ℹ️ О боте")],
+        [KeyboardButton("💱 Курс USDT"), KeyboardButton("ℹ️ О боте")],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 def cancel_menu():
     keyboard = [[KeyboardButton("❌ Отмена")]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+def get_binance_rate():
+    try:
+        url = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
+        payload = json.dumps({
+            "asset": "USDT",
+            "fiat": "UAH",
+            "merchantCheck": False,
+            "page": 1,
+            "payTypes": ["ALL"],
+            "publisherType": None,
+            "rows": 5,
+            "tradeType": "BUY",
+            "transAmount": "5000"
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        ads = data.get("data", [])
+        if not ads:
+            return None
+        price = float(ads[0]["adv"]["price"])
+        nick = ads[0]["advertiser"]["nickName"]
+        min_amount = ads[0]["adv"]["minSingleTransAmount"]
+        max_amount = ads[0]["adv"]["maxSingleTransAmount"]
+        return {
+            "price": price,
+            "nick": nick,
+            "min": min_amount,
+            "max": max_amount
+        }
+    except Exception as e:
+        logging.error(f"Binance error: {e}")
+        return None
+
+async def show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("⏳ Загружаю курс...")
+    rate = get_binance_rate()
+    refresh_btn = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Обновить", callback_data="refresh_rate")]
+    ])
+    if rate:
+        text = (
+            f"💱 Курс USDT/UAH (Binance P2P)\n\n"
+            f"💵 Покупка от 5000₴\n"
+            f"📈 Лучшая цена: {rate['price']} ₴\n"
+            f"👤 Продавец: {rate['nick']}\n"
+            f"📊 Лимиты: {rate['min']} — {rate['max']} ₴\n\n"
+            f"💳 Оплата: Всі методи"
+        )
+    else:
+        text = "❌ Не удалось получить курс. Попробуй позже."
+    await msg.edit_text(text, reply_markup=refresh_btn)
+
+async def refresh_rate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Обновляю...")
+    rate = get_binance_rate()
+    refresh_btn = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Обновить", callback_data="refresh_rate")]
+    ])
+    if rate:
+        text = (
+            f"💱 Курс USDT/UAH (Binance P2P)\n\n"
+            f"💵 Покупка от 5000₴\n"
+            f"📈 Лучшая цена: {rate['price']} ₴\n"
+            f"👤 Продавец: {rate['nick']}\n"
+            f"📊 Лимиты: {rate['min']} — {rate['max']} ₴\n\n"
+            f"💳 Оплата: Всі методи"
+        )
+    else:
+        text = "❌ Не удалось получить курс. Попробуй позже."
+    await query.edit_message_text(text, reply_markup=refresh_btn)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -87,6 +169,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_notes[uid] = []
         await update.message.reply_text("✅ Все заметки удалены.", reply_markup=main_menu())
 
+    elif text == "💱 Курс USDT":
+        await show_rate(update, context)
+
     elif text == "ℹ️ О боте":
         await update.message.reply_text(
             "🤖 Я простой бот-помощник!\n\n"
@@ -94,7 +179,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Показывать погоду\n"
             "• Рассказывать факты\n"
             "• Считать примеры\n"
-            "• Сохранять заметки\n\n"
+            "• Сохранять заметки\n"
+            "• Показывать курс USDT/UAH\n\n"
             "Создан с помощью Claude 🧠",
             reply_markup=main_menu()
         )
@@ -167,6 +253,7 @@ def main():
     )
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
+    app.add_handler(CallbackQueryHandler(refresh_rate_callback, pattern="refresh_rate"))
     print("Бот запущен!")
     app.run_polling()
 
